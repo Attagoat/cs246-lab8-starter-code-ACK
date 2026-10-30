@@ -7,46 +7,38 @@ Reflection: Describe the steps you took to write this, and the problems you enco
             Include any LLM usage (but be sure and review the syllabus section specifying where LLMs can and cannot be used)
 */
 
-import pg from 'pg';    // package for executing SQL in JavaScript
-import dotenv from 'dotenv'; // to manage environment variables
-dotenv.config();
+import dotenv from 'dotenv';
+import pg from 'pg';
 
-const mySecret = process.env['CockroachDBPassword']; // reads from .env file at root 
+// Resolve .env beside this file, even when launched from another directory.
+dotenv.config({ path: new URL('.env', import.meta.url), quiet: true });
 
-const pool = new pg.Pool({
-    user: 'YOUR_USER',
-    host: 'your_cluster.cockroachlabs.cloud',
-    database: 'your_database_name',
-    password: mySecret,
-    port: 26257,
-    ssl: true,
+if (!process.env.DATABASE_URL) {
+  throw new Error('Set DATABASE_URL in .env before running this demo.');
+}
+
+const client = new pg.Client({
+  connectionString: process.env.DATABASE_URL,
+  connectionTimeoutMillis: 10000,
 });
 
-
-/**
- * This illustrates the basic syntax for making a query, in this case, selecting
- * all movies in the table
- *
- * @async
- * @function demoSelect
- * @returns {Promise<void>} Asynchronous functions return Promises — in this case, a void one.
- */
 async function demoSelect() {
-    try {
-        let results = await pool.query('SELECT * FROM movies');
-        let movies = results.rows; // each row corresponds to one movie
-        for (let movie of movies) {
-            // do something spectacular here
-        }
-    } catch (error) {
-        console.log(`An error has occurred while selecting: ${error}`);
+
+  try {
+    const { rows } = await client.query(
+      'SELECT * FROM movies',
+    );
+
+    for(let row of rows){
+      console.log(rows);
     }
+
+  } catch (error) {
+    console.error('Supabase demo failed:', error.message);
+    process.exitCode = 1;
+  }
 }
 
-// While this needn't be called main(), it's as good a name as any.
-
-async function main() {
-    await demoSelect(); // Since we are awaiting demoSelect(), we must mark main() as async
-}
-
-main();
+await client.connect();
+await demoSelect();
+await client.end();
